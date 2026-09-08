@@ -1,6 +1,12 @@
 # nail_designer
 
+**https://hollowmark-dev.github.io/nail-designer/**
+
 スマホでネイルの図案（10本ぶん）を作るアプリ。テンプレ化したパーツを爪の上に置くだけで、手書きより速く1セット作れるようにする。
+
+使ってもらうときは上のURLを渡すだけ。インストールもアカウント登録も要らない。
+**ブラウザ（Safari / Chrome）で開いて、ホーム画面に追加してから使う**のがおすすめ
+（LINE などのアプリ内ブラウザで開くとデータが消えやすく、ホーム画面にも追加できない）。
 
 - データは端末内（IndexedDB）にのみ保存。サーバーには一切送らない
 - 共有するのは**アプリ本体**。URLを教えて相手にも使ってもらう（作ったデザインは各自の端末に残る）
@@ -121,13 +127,15 @@ docs/
 - 犬 … 猫との差別化はできているが「犬らしさ」が弱い
 - 押し花 … 散らし方が細かすぎて模様に見えにくい
 
-## 公開する（GitHub Pages）
+## 公開（GitHub Pages）
 
-まだ公開していない。公開するときの手順:
+- リポジトリ: `hollowmark-dev/nail-designer`（public。無料プランの Pages は public でしか使えない）
+- 公開元: `main` ブランチの `/docs`
+- URL: https://hollowmark-dev.github.io/nail-designer/
 
-1. `nail_designer` を git リポジトリにして、GitHub（アカウント `hollowmark-dev`）に push する
-2. リポジトリの Settings → Pages で、ブランチと `/docs` フォルダを公開元に指定する
-3. 出てきたURL（`https://hollowmark-dev.github.io/<リポジトリ名>/`）をスマホで開く
+更新するときは `main` に push すれば数十秒で反映される。
+**アプリの中身を変えたら `docs/sw.js` の `VERSION` を上げること。**
+上げないと、既にホーム画面に追加した人の端末が古いキャッシュのままになる。
 
 ### 公開後に確認すること（HTTPS でしか試せない）
 
