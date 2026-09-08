@@ -170,6 +170,8 @@ button { cursor: pointer; }
 
 .tool-body { padding: 8px 10px 10px; border-top: 1px solid var(--line); }
 
+/* パーツが多いので横スクロール1段。段を増やすと作業スペースを食うので、
+   探しやすさはタグの絞り込みで担保する */
 .part-grid { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
 .part-grid button {
   flex: none; border: 1px solid var(--line); background: #fff; border-radius: 10px;

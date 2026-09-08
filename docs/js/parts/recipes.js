@@ -14,7 +14,7 @@ const edge = (part, anchor, y, ...c) => ({ part, anchor, y, c });
 const pat = (part, ...c) => ({ part, c });
 const mo = (part, x, y, w, ...c) => ({ part, anchor: 'center', x, y, w, rot: 0, c });
 
-export const RECIPE_TAGS = ['シンプル', 'ガーリー', '韓国風', 'オフィス', '季節'];
+export const RECIPE_TAGS = ['トレンド', 'シンプル', 'ガーリー', '韓国風', 'オフィス', '季節'];
 
 export const RECIPES = [
   {
@@ -124,6 +124,47 @@ export const RECIPES = [
       mo('motif.star', 60, -8, 15, 1),
       mo('motif.star', 44, 22, 18, 4),
     ],
+  },
+  /* --- トレンド（2025秋〜2026冬の人気デザインを調べて足したもの） --- */
+  {
+    id: 'r.magnet', name: 'マグネット', tags: ['トレンド', '韓国風'],
+    base: base('base.magnet'), layers: [],
+  },
+  {
+    id: 'r.mirror_french', name: 'ミラーフレンチ', tags: ['トレンド'],
+    base: base('base.solid', 1), layers: [edge('edge.mirror_tip', 'tip', 34)],
+  },
+  {
+    id: 'r.bekko', name: 'べっ甲', tags: ['トレンド', '季節'],
+    base: base('base.bekko'), layers: [],
+  },
+  {
+    id: 'r.gemstone', name: '天然石', tags: ['トレンド', '韓国風'],
+    base: base('base.gemstone'), layers: [],
+  },
+  {
+    id: 'r.nuance_foil', name: 'ニュアンス＋金箔', tags: ['トレンド', '韓国風'],
+    base: base('base.nuance'), layers: [pat('pattern.foil')],
+  },
+  {
+    id: 'r.tiedye', name: 'タイダイ', tags: ['トレンド'],
+    base: base('base.tiedye'), layers: [],
+  },
+  {
+    id: 'r.skinny', name: 'スキニーフレンチ', tags: ['トレンド', 'オフィス'],
+    base: base('base.solid', 1), layers: [edge('edge.skinny_french', 'tip', 30)],
+  },
+  {
+    id: 'r.glitter_tip', name: 'ラメグラデ', tags: ['トレンド', 'シンプル'],
+    base: base('base.solid', 0), layers: [pat('pattern.glitter_tip')],
+  },
+  {
+    id: 'r.leopard', name: 'ヒョウ柄', tags: ['トレンド', '季節'],
+    base: base('base.solid', 4), layers: [pat('pattern.leopard')],
+  },
+  {
+    id: 'r.quilting', name: 'キルティング', tags: ['トレンド', '季節'],
+    base: base('base.solid', 1), layers: [pat('pattern.quilting')],
   },
 ];
 

@@ -8,7 +8,7 @@
  * - すべてのURLは sw.js 自身からの相対パス（サブパス配信 = 相対パス解決に対応するため）。
  */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE_PREFIX = 'nail-';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 
@@ -32,6 +32,9 @@ const PRECACHE_URLS = [
   './js/first-run.js',
   './js/parts/parts-extra-1.js',
   './js/parts/parts-extra-2.js',
+  './js/parts/parts-extra-3.js',
+  './js/parts/parts-extra-4.js',
+  './js/parts/parts-extra-5.js',
   './js/parts/parts.js',
   './js/parts/recipes.js',
   './js/parts/sample.js',

@@ -24,6 +24,13 @@ import {
   EXTRA_MOTIFS as X1_MOTIFS,
 } from './parts-extra-1.js';
 import { EXTRA_MOTIFS as X2_MOTIFS } from './parts-extra-2.js';
+import {
+  EXTRA_BASES as X3_BASES,
+  EXTRA_EDGES as X3_EDGES,
+  EXTRA_PATTERNS as X3_PATTERNS,
+} from './parts-extra-3.js';
+import { EXTRA_MOTIFS as X4_MOTIFS } from './parts-extra-4.js';
+import { EXTRA_MOTIFS as X5_MOTIFS } from './parts-extra-5.js';
 
 /* ------------------------------------------------------------------ */
 /* ベース                                                              */
@@ -257,13 +264,18 @@ export const PARTS = Object.assign(
   {},
   tag(BASES, 'base'),
   tag(X1_BASES, 'base'),
+  tag(X3_BASES, 'base'),
   tag(EDGES, 'edge'),
   tag(X1_EDGES, 'edge'),
+  tag(X3_EDGES, 'edge'),
   tag(PATTERNS, 'pattern'),
   tag(X1_PATTERNS, 'pattern'),
+  tag(X3_PATTERNS, 'pattern'),
   tag(MOTIFS, 'motif'),
   tag(X1_MOTIFS, 'motif'),
   tag(X2_MOTIFS, 'motif'),
+  tag(X4_MOTIFS, 'motif'),
+  tag(X5_MOTIFS, 'motif'),
 );
 
 export const CATS = [
