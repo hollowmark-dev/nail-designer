@@ -1,0 +1,220 @@
+/* ネイルデザイン — スマホ縦を基準にした画面。
+   高さは 100vh でなく dvh（文字入力でキーボードが出たときに崩れるため）。 */
+
+:root {
+  color-scheme: light;
+  --bg: #fbf7f8;
+  --card: #ffffff;
+  --line: #ecdfe4;
+  --ink: #2a2226;
+  --sub: #7b6e74;
+  --accent: #e8607f;
+  --accent-soft: #fdeef2;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN",
+        "Yu Gothic", "Noto Sans JP", sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  overscroll-behavior: none;
+}
+
+#app { height: 100dvh; display: flex; flex-direction: column; }
+.view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+button, input, select {
+  font: inherit; color: inherit;
+}
+button { cursor: pointer; }
+
+/* ---------- 共通の部品 ---------- */
+
+.bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.bar .grow { flex: 1; min-width: 0; }
+
+.btn {
+  border: 1px solid var(--line); background: var(--card);
+  border-radius: 9px; padding: 8px 12px; font-size: 14px; white-space: nowrap;
+}
+.btn:disabled { opacity: .35; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.icon { padding: 8px 11px; font-size: 16px; line-height: 1; }
+.btn.sm { padding: 6px 9px; font-size: 13px; }
+
+.title-input {
+  width: 100%; border: none; background: transparent;
+  font-size: 16px; font-weight: 600; padding: 6px 4px; min-width: 0;
+}
+.title-input:focus { outline: 2px solid var(--accent-soft); border-radius: 6px; }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(18px + var(--safe-b)); transform: translateX(-50%);
+  background: #2a2226; color: #fff; padding: 10px 16px; border-radius: 10px;
+  font-size: 13px; z-index: 100; max-width: 90vw; text-align: center;
+}
+.toast.error { background: #a3232a; }
+
+.empty { padding: 40px 20px; text-align: center; color: var(--sub); font-size: 14px; }
+
+/* ---------- 作品一覧 ---------- */
+
+.gallery { flex: 1; overflow-y: auto; padding: 12px 12px calc(24px + var(--safe-b)); }
+.gallery-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+
+.design-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 8px; text-align: left; display: flex; flex-direction: column; gap: 6px;
+}
+.design-card .thumb {
+  background: #fff; border-radius: 8px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; min-height: 96px;
+}
+.design-card .thumb svg { width: 100%; height: auto; display: block; }
+.design-card .nm { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.design-card .dt { font-size: 11px; color: var(--sub); }
+.design-card .row { display: flex; gap: 6px; }
+
+/* ---------- エディタ ---------- */
+
+.strip {
+  flex: none; background: var(--card); border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px;
+}
+.strip button {
+  border: 1.5px solid transparent; background: transparent; border-radius: 8px;
+  padding: 2px 2px 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+}
+.strip button.on { border-color: var(--accent); background: var(--accent-soft); }
+.strip svg { width: 100%; height: auto; display: block; max-height: 58px; }
+.strip .fg { font-size: 9px; line-height: 1.4; color: var(--sub); }
+.strip button.on .fg { color: var(--accent); font-weight: 600; }
+
+.chip.sm { padding: 4px 10px; font-size: 12px; }
+
+.canvas-wrap {
+  flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+  padding: 14px 18px; overflow: hidden; position: relative;
+}
+#canvas {
+  height: 100%; width: auto; max-width: 100%;
+  touch-action: none;               /* これが無いとキャンバス上のドラッグがページスクロールになる */
+  -webkit-touch-callout: none;
+  user-select: none; -webkit-user-select: none;
+  display: block;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+
+/* ズーム操作。ピンチできない場面でも押せるように＋／−も出す */
+.zoom-bar {
+  position: absolute; right: 8px; bottom: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.zoom-bar button {
+  width: 38px; height: 38px; padding: 0; font-size: 17px; line-height: 1;
+  border: 1px solid var(--line); border-radius: 11px;
+  background: rgba(255, 255, 255, .92); color: var(--ink);
+}
+.zoom-bar button:disabled { opacity: .3; }
+.zoom-level {
+  position: absolute; left: 8px; bottom: 10px;
+  font-size: 11px; color: var(--sub); background: rgba(255,255,255,.85);
+  padding: 3px 8px; border-radius: 8px;
+}
+
+/* 集中モード: ストリップを1行のラベルだけにして、ツールも低くする */
+.strip .hand { display: none; }
+.view.focus .strip {
+  display: flex; gap: 5px; padding: 5px 8px; overflow-x: auto;
+}
+.view.focus .strip svg { display: none; }
+.view.focus .strip .hand { display: inline; }
+.view.focus .strip button {
+  flex: 0 0 auto; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px;
+}
+.view.focus .strip .fg { font-size: 12px; }
+.view.focus .tool-body { max-height: 104px; overflow-y: auto; }
+.view.focus .canvas-wrap { padding: 8px 10px; }
+
+.layer-actions {
+  flex: none; display: flex; gap: 6px; padding: 6px 10px;
+  background: var(--card); border-top: 1px solid var(--line);
+  overflow-x: auto;
+}
+.layer-actions .name { align-self: center; font-size: 12px; color: var(--sub); margin-right: auto; white-space: nowrap; }
+
+.tools {
+  flex: none; background: var(--card); border-top: 1px solid var(--line);
+  padding-bottom: var(--safe-b);
+}
+.tabs { display: flex; gap: 4px; padding: 6px 8px 0; overflow-x: auto; }
+.tabs button {
+  border: none; background: transparent; border-radius: 8px 8px 0 0;
+  padding: 7px 12px; font-size: 13px; color: var(--sub); white-space: nowrap;
+}
+.tabs button.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.tool-body { padding: 8px 10px 10px; border-top: 1px solid var(--line); }
+
+.part-grid { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+.part-grid button {
+  flex: none; border: 1px solid var(--line); background: #fff; border-radius: 10px;
+  padding: 5px 5px 3px; width: 60px; text-align: center;
+}
+.part-grid button.on { border-color: var(--accent); background: var(--accent-soft); }
+.part-grid svg { display: block; margin: 0 auto; }
+.part-grid .cap { font-size: 10px; color: var(--sub); margin-top: 3px; line-height: 1.25; }
+
+.chip-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip {
+  border: 1px solid var(--line); background: #fff; border-radius: 999px;
+  padding: 6px 12px; font-size: 13px;
+}
+.chip.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch {
+  width: 34px; height: 34px; border-radius: 9px; border: 1.5px solid var(--line);
+  padding: 0; position: relative; overflow: hidden;
+}
+.swatch.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.swatch input { position: absolute; inset: -6px; opacity: 0; width: 200%; height: 200%; }
+
+.section-label { font-size: 11px; color: var(--sub); margin: 10px 0 5px; }
+.section-label:first-child { margin-top: 0; }
+
+/* ---------- ポップアップメニュー ---------- */
+
+.popmenu {
+  position: fixed; z-index: 90; background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px; padding: 4px;
+  box-shadow: 0 6px 22px rgba(60, 30, 45, .18);
+  display: flex; flex-direction: column; min-width: 120px;
+}
+.popmenu button { border: none; background: transparent; text-align: left; padding: 9px 12px; border-radius: 7px; font-size: 14px; }
+.popmenu button:active { background: var(--accent-soft); }
+.scrim { position: fixed; inset: 0; z-index: 89; }
+
+/* ---------- 書き出し ---------- */
+
+.export-body { flex: 1; overflow-y: auto; padding: 14px 12px calc(24px + var(--safe-b)); }
+.export-preview {
+  background: repeating-conic-gradient(#f2eef0 0% 25%, #fff 0% 50%) 50% / 14px 14px;
+  border: 1px solid var(--line); border-radius: 12px; padding: 8px; margin-bottom: 12px;
+}
+.export-preview img { display: block; width: 100%; height: auto; border-radius: 6px; }
+.hint { font-size: 12px; color: var(--sub); margin: 8px 0 0; }

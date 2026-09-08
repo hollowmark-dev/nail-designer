@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>パーツ一覧（開発用）</title>
+<style>
+  body { margin:0; padding:12px; background:#fbf7f8; color:#2a2226;
+         font:14px/1.5 -apple-system, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif; }
+  h2 { font-size:14px; margin:18px 0 8px; padding-bottom:4px; border-bottom:1px solid #ecdfe4; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(104px,1fr)); gap:10px; }
+  .cell { background:#fff; border:1px solid #ecdfe4; border-radius:9px; padding:6px 3px 4px; text-align:center; }
+  .cell svg { display:block; margin:0 auto; width:72px; height:auto; }
+  .cap { font-size:11px; color:#7b6e74; margin-top:4px; line-height:1.3; word-break:break-all; }
+</style>
+</head>
+<body>
+<h1 style="font-size:16px;margin:0">パーツ一覧（開発用・公開前に消す）</h1>
+<div id="out"></div>
+<script type="module">
+import { PARTS, CATS } from './js/parts/parts.js';
+import { partThumbSvg, recipeThumbSvg } from './js/render.js';
+import { RECIPES } from './js/parts/recipes.js';
+import { DEFAULT_PALETTE } from './js/model.js';
+
+const out = document.getElementById('out');
+let html = '';
+for (const c of CATS) {
+  const list = Object.values(PARTS).filter(p => p.cat === c.key);
+  html += `<h2>${c.label}（${list.length}）</h2><div class="grid">`;
+  for (const p of list) {
+    html += `<div class="cell">${partThumbSvg(p.id, DEFAULT_PALETTE, { px: 72, baseColor: '#EFEBED' })}` +
+            `<div class="cap">${p.name}<br>${p.id.split('.')[1]}</div></div>`;
+  }
+  html += `</div>`;
+}
+html += `<h2>レシピ（${RECIPES.length}）</h2><div class="grid">`;
+for (const r of RECIPES) {
+  html += `<div class="cell">${recipeThumbSvg(r, DEFAULT_PALETTE, { px: 72 })}` +
+          `<div class="cap">${r.name}</div></div>`;
+}
+html += `</div>`;
+out.innerHTML = html;
+</script>
+</body>
+</html>

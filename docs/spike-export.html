@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>書き出し互換性チェック — nail_designer Phase 0</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 12px 12px 48px;
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+    background: #fbf7f8; color: #2a2226;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .lead { font-size: 13px; color: #6b5f65; margin: 0 0 16px; }
+  .card {
+    background: #fff; border: 1px solid #ecdfe4; border-radius: 12px;
+    padding: 12px; margin-bottom: 12px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 2px; }
+  .card .why { font-size: 12px; color: #7b6e74; margin: 0 0 10px; }
+  .verdict { font-size: 13px; font-weight: 600; padding: 6px 10px; border-radius: 8px; margin-top: 10px; }
+  .ok   { background: #e8f6ec; color: #1c6b34; }
+  .ng   { background: #fdeaea; color: #a3232a; }
+  .warn { background: #fdf4e3; color: #8a6316; }
+  .skip { background: #eef0f2; color: #5c646b; }
+  .detail { font-size: 12px; color: #6b5f65; margin-top: 6px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+  .cell { text-align: center; font-size: 11px; color: #7b6e74; }
+  .cell > .box {
+    background: repeating-conic-gradient(#f2eef0 0% 25%, #fff 0% 50%) 50% / 12px 12px;
+    border: 1px solid #ecdfe4; border-radius: 8px; padding: 4px; display: inline-block;
+  }
+  .cell svg, .cell canvas, .cell img { display: block; width: 84px; height: auto; }
+  #env dl { margin: 0; font-size: 12px; }
+  #env dt { font-weight: 600; margin-top: 6px; }
+  #env dd { margin: 0; color: #6b5f65; word-break: break-all; font-family: ui-monospace, monospace; }
+  button {
+    font: inherit; font-size: 14px; padding: 10px 16px; border-radius: 10px;
+    border: 1px solid #d9c3cb; background: #fff; color: #2a2226; cursor: pointer;
+  }
+  button.primary { background: #e8607f; border-color: #e8607f; color: #fff; font-weight: 600; }
+  #summary { position: sticky; top: 0; z-index: 5; background: #fbf7f8; padding: 8px 0; }
+  #summary .bar { font-size: 14px; font-weight: 600; padding: 10px 12px; border-radius: 10px; background: #eef0f2; }
+</style>
+</head>
+<body>
+
+<h1>書き出し互換性チェック</h1>
+<p class="lead">nail_designer Phase 0。SVG → PNG の書き出しで何が使えるかを実機で確かめる。<br>
+<b>この端末とブラウザで開いて、下まで見てから「結果をコピー」を押してください。</b></p>
+
+<div id="summary"><div class="bar">計測中…</div></div>
+
+<div class="card" id="env">
+  <h2>環境</h2>
+  <dl id="envList"></dl>
+</div>
+
+<div id="tests"></div>
+
+<div class="card">
+  <button class="primary" id="copyBtn">結果をコピー</button>
+  <div class="detail" id="copyMsg"></div>
+</div>
+
+<script type="module">
+/* =========================================================================
+   共通ユーティリティ
+   ========================================================================= */
+
+const LENGTHS = { short: 130, middle: 155, long: 185 };
+
+/* ---- 爪の形（関数生成。固定パスを縦に伸ばすと先端が潰れるため） ---- */
+const CUT = 14; // 根元カーブの深さ
+const TIPS = {
+  round:     { len: 46, label: 'ラウンド' },
+  square:    { len: 14, label: 'スクエア' },
+  almond:    { len: 62, label: 'アーモンド' },
+  ballerina: { len: 58, label: 'バレリーナ' },
+};
+function tipPath(shape, h) {
+  const y = h - TIPS[shape].len;
+  switch (shape) {
+    case 'round':     return 'C 100 ' + (h - 12) + ', 80 ' + h + ', 50 ' + h + ' C 20 ' + h + ', 0 ' + (h - 12) + ', 0 ' + y;
+    case 'square':    return 'L 100 ' + (h - 8) + ' Q 100 ' + h + ' 92 ' + h + ' L 8 ' + h + ' Q 0 ' + h + ' 0 ' + (h - 8) + ' L 0 ' + y;
+    case 'almond':    return 'C 100 ' + (h - 34) + ', 72 ' + h + ', 50 ' + h + ' C 28 ' + h + ', 0 ' + (h - 34) + ', 0 ' + y;
+    case 'ballerina': return 'L 74 ' + (h - 5) + ' Q 73 ' + h + ' 67 ' + h + ' L 33 ' + h + ' Q 27 ' + h + ' 26 ' + (h - 5) + ' L 0 ' + y;
+  }
+}
+function nailPath(shape, h) {
+  return 'M 0 ' + CUT + ' C 18 0, 82 0, 100 ' + CUT + ' L 100 ' + (h - TIPS[shape].len) + ' ' + tipPath(shape, h) + ' Z';
+}
+
+/* ---- SVG 文書の組み立て ---- */
+function svgDoc(o) {
+  const h = o.h, scale = o.scale;
+  const size = o.omitSize ? '' : ' width="' + Math.round(100 * scale) + '" height="' + Math.round(h * scale) + '"';
+  return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"' + size
+       + ' viewBox="0 0 100 ' + h + '">'
+       + (o.fontCSS ? '<defs><style type="text/css">' + o.fontCSS + '</style></defs>' : '')
+       + (o.defs ? '<defs>' + o.defs + '</defs>' : '')
+       + (o.body || '') + '</svg>';
+}
+
+/* ---- パーツの色プレースホルダ {c0} を実色に置換（var(--c0) は SVG-as-image で効かない環境があるため） ---- */
+function paint(svg, colors) {
+  return svg.replace(/\{c(\d+)\}/g, function (m, i) { return colors[+i] || '#000000'; });
+}
+
+/* ---- id を接頭辞つきに書き換える（同一パーツ複数配置での衝突対策） ---- */
+function instantiate(svg, prefix) {
+  return svg
+    .replace(/id="([^"]+)"/g, function (m, id) { return 'id="' + prefix + id + '"'; })
+    .replace(/url\(#([^)]+)\)/g, function (m, id) { return 'url(#' + prefix + id + ')'; })
+    .replace(/(xlink:href|href)="#([^"]+)"/g, function (m, a, id) { return a + '="#' + prefix + id + '"'; });
+}
+
+/* ---- SVG → <img> → canvas ---- */
+function svgUrl(svg, via) {
+  if (via === 'data') return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+  return URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+}
+
+function loadImg(url) {
+  return new Promise(function (resolve, reject) {
+    const img = new Image();
+    img.onload = function () { resolve(img); };
+    img.onerror = function () { reject(new Error('img onerror')); };
+    img.src = url;
+  });
+}
+
+async function rasterize(svg, opt) {
+  opt = opt || {};
+  const via = opt.via || 'blob';
+  const url = svgUrl(svg, via);
+  try {
+    const img = await loadImg(url);
+    if (img.decode) { try { await img.decode(); } catch (e) { /* Safari で稀に失敗するが描画自体はできる */ } }
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    const w = Math.max(1, Math.round(opt.forceW || nw));
+    const h = Math.max(1, Math.round(opt.forceH || nh));
+    const cv = document.createElement('canvas');
+    cv.width = w; cv.height = h;
+    const ctx = cv.getContext('2d', { willReadFrequently: true });
+    if (opt.bg) { ctx.fillStyle = opt.bg; ctx.fillRect(0, 0, w, h); }
+    ctx.drawImage(img, 0, 0, w, h);
+    let data = null, tainted = false, taintErr = '';
+    try { data = ctx.getImageData(0, 0, w, h); }
+    catch (e) { tainted = true; taintErr = String((e && e.name) || e); }
+    return { canvas: cv, ctx: ctx, data: data, tainted: tainted, taintErr: taintErr, natural: [nw, nh] };
+  } finally {
+    if (via === 'blob') URL.revokeObjectURL(url);
+  }
+}
+
+function toBlobAsync(canvas, type) {
+  return new Promise(function (resolve, reject) {
+    if (!canvas.toBlob) return reject(new Error('toBlob 未対応'));
+    canvas.toBlob(function (b) { b ? resolve(b) : reject(new Error('toBlob が null を返した')); }, type || 'image/png');
+  });
+}
+
+/* ---- ピクセル取得 ---- */
+function px(data, x, y) {
+  const xi = Math.max(0, Math.min(data.width - 1, Math.round(x)));
+  const yi = Math.max(0, Math.min(data.height - 1, Math.round(y)));
+  const i = (yi * data.width + xi) * 4;
+  return [data.data[i], data.data[i + 1], data.data[i + 2], data.data[i + 3]];
+}
+function hex(p) {
+  if (!p) return '?';
+  const s = '#' + [p[0], p[1], p[2]].map(function (v) { return v.toString(16).padStart(2, '0'); }).join('');
+  return p[3] < 255 ? s + ' a' + p[3] : s;
+}
+function dist(a, b) { return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]); }
+
+/* =========================================================================
+   画面組み立て
+   ========================================================================= */
+
+const testsEl = document.getElementById('tests');
+const report = [];
+const results = { ok: 0, ng: 0, warn: 0, skip: 0 };
+function V(state, text) { results[state] = (results[state] || 0) + 1; return { state: state, text: text }; }
+
+function cell(label, node) {
+  const d = document.createElement('div');
+  d.className = 'cell';
+  const box = document.createElement('div');
+  box.className = 'box';
+  box.appendChild(node);
+  d.appendChild(box);
+  const cap = document.createElement('div');
+  cap.textContent = label;
+  d.appendChild(cap);
+  return d;
+}
+
+function inlineSvg(svgString) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = svgString;
+  const el = wrap.firstElementChild;
+  el.removeAttribute('width'); el.removeAttribute('height');
+  el.style.width = '84px'; el.style.height = 'auto';
+  return el;
+}
+
+function addCard(o) {
+  const card = document.createElement('div');
+  card.className = 'card';
+  const st = o.verdict.state;
+  const icon = st === 'ok' ? '✅' : st === 'ng' ? '❌' : st === 'warn' ? '⚠️' : '⏭';
+  const h2 = document.createElement('h2');
+  h2.textContent = icon + ' ' + o.title;
+  const why = document.createElement('p');
+  why.className = 'why';
+  why.textContent = o.why || '';
+  card.appendChild(h2); card.appendChild(why);
+  const row = document.createElement('div');
+  row.className = 'row';
+  (o.cells || []).forEach(function (c) { row.appendChild(c); });
+  card.appendChild(row);
+  const v = document.createElement('div');
+  v.className = 'verdict ' + st;
+  v.textContent = o.verdict.text;
+  card.appendChild(v);
+  if (o.detail) {
+    const dd = document.createElement('div');
+    dd.className = 'detail';
+    dd.textContent = o.detail;
+    card.appendChild(dd);
+  }
+  testsEl.appendChild(card);
+  report.push('[' + st.toUpperCase() + '] ' + o.id + ' ' + o.title + '\n  ' + o.verdict.text
+    + (o.detail ? '\n  ' + o.detail.replace(/\n/g, '\n  ') : ''));
+}
+
+const envList = document.getElementById('envList');
+function env(k, v) {
+  const dt = document.createElement('dt'); dt.textContent = k;
+  const dd = document.createElement('dd'); dd.textContent = v;
+  envList.appendChild(dt); envList.appendChild(dd);
+  report.push(k + ': ' + v);
+}
+
+/* =========================================================================
+   フォント取得（Google Fonts から woff2 を base64 化）
+   実アプリでは docs/fonts/ に同梱するが、埋め込みの仕組み自体はここで検証できる
+   ========================================================================= */
+async function fetchFontDataUri(family) {
+  const cssUrl = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(family) + '&display=swap';
+  const css = await (await fetch(cssUrl)).text();
+  const m = css.match(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+?\.woff2)\)/);
+  if (!m) throw new Error('woff2 のURLが見つからない');
+  const buf = await (await fetch(m[1])).arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return { uri: 'data:font/woff2;base64,' + btoa(bin), bytes: bytes.length };
+}
+
+/* =========================================================================
+   テスト本体
+   ========================================================================= */
+const H = LENGTHS.middle;
+const CLIP = '<clipPath id="clip"><path d="' + nailPath('round', H) + '"/></clipPath>';
+const FILL = function (color) {
+  return '<rect x="-10" y="-10" width="120" height="' + (H + 20) + '" fill="' + color + '"/>';
+};
+
+async function run() {
+  env('UA', navigator.userAgent);
+  env('devicePixelRatio', String(devicePixelRatio));
+  env('画面', innerWidth + ' x ' + innerHeight);
+  env('navigator.share', typeof navigator.share === 'function' ? 'あり' : 'なし');
+  env('navigator.canShare', typeof navigator.canShare === 'function' ? 'あり' : 'なし');
+  env('storage.persist', (navigator.storage && navigator.storage.persist) ? 'あり' : 'なし');
+  env('OffscreenCanvas', typeof OffscreenCanvas === 'function' ? 'あり' : 'なし');
+
+  /* ---------- T0: blob: と data: どちらで <img> に読ませられるか ---------- */
+  {
+    const svg = svgDoc({ h: H, scale: 2, defs: CLIP, body: '<g clip-path="url(#clip)">' + FILL('#E8607F') + '</g>' });
+    const cells = [], notes = [];
+    let okBlob = false, okData = false;
+    for (const via of ['blob', 'data']) {
+      try {
+        const r = await rasterize(svg, { via: via });
+        cells.push(cell(via + ':', r.canvas));
+        const center = r.data ? px(r.data, r.canvas.width / 2, r.canvas.height / 2) : null;
+        const good = !!(center && center[3] > 200);
+        if (via === 'blob') okBlob = good; else okData = good;
+        notes.push(via + ': naturalSize=' + r.natural.join('x') + ' 中心=' + hex(center)
+          + (r.tainted ? ' ★canvas汚染 ' + r.taintErr : ''));
+      } catch (e) {
+        notes.push(via + ': 失敗 ' + e.message);
+      }
+    }
+    addCard({
+      id: 'T0', title: 'SVGを画像として読み込む経路',
+      why: 'blob: URL と data: URI のどちらが使えるか。片方しか通らない環境がある。',
+      cells: cells,
+      verdict: (okBlob && okData) ? V('ok', '両方使える。blob: を既定にする')
+             : okBlob ? V('warn', 'blob: のみ使える')
+             : okData ? V('warn', 'data: のみ使える。書き出しは data: URI で実装する')
+             : V('ng', 'どちらも失敗。SVG→PNG の方式を根本から変える必要がある'),
+      detail: notes.join('\n'),
+    });
+  }
+
+  /* ---------- T1: clipPath で爪の形に切り抜けるか ---------- */
+  {
+    const svg = svgDoc({ h: H, scale: 2, defs: CLIP, body: '<g clip-path="url(#clip)">' + FILL('#F9A8BC') + '</g>' });
+    const r = await rasterize(svg);
+    const corner = r.data && px(r.data, 3, 3);
+    const center = r.data && px(r.data, r.canvas.width / 2, r.canvas.height / 2);
+    const clipped = corner && corner[3] < 20;
+    const filled = center && center[3] > 200;
+    addCard({
+      id: 'T1', title: 'clipPath（爪の形での切り抜き）',
+      why: '爪の形はすべてのレイヤーに clipPath で適用する。ここが効かないと全部はみ出す。',
+      cells: [cell('inline', inlineSvg(svg)), cell('PNG', r.canvas)],
+      verdict: (clipped && filled) ? V('ok', '角が透明・中身が塗られている。clipPath は効いている')
+             : V('ng', '切り抜きが効いていない'),
+      detail: '左上角=' + hex(corner) + '（透明であるべき） 中心=' + hex(center) + '（不透明であるべき）',
+    });
+  }
+
+  /* ---------- T2: linearGradient ---------- */
+  {
+    const svg = svgDoc({ h: H, scale: 2,
+      defs: CLIP + '<linearGradient id="g" x1="0" y1="0" x2="0" y2="1">'
+          + '<stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E8425A"/></linearGradient>',
+      body: '<g clip-path="url(#clip)">' + FILL('url(#g)') + '</g>' });
+    const r = await rasterize(svg);
+    const top = r.data && px(r.data, r.canvas.width / 2, r.canvas.height * 0.18);
+    const bot = r.data && px(r.data, r.canvas.width / 2, r.canvas.height * 0.80);
+    const d = (top && bot) ? dist(top, bot) : 0;
+    addCard({
+      id: 'T2', title: 'linearGradient（ベースのグラデ）',
+      why: 'ベースの上下グラデ・バイカラーで使う。',
+      cells: [cell('inline', inlineSvg(svg)), cell('PNG', r.canvas)],
+      verdict: d > 60 ? V('ok', 'グラデーションが出ている') : V('ng', '上下で色が変わっていない'),
+      detail: '上=' + hex(top) + ' 下=' + hex(bot) + ' 差=' + d,
+    });
+  }
+
+  /* ---------- T3: pattern（ドット柄）と、明示 circle との比較 ---------- */
+  {
+    const dotsDefs = '<pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse">'
+                   + '<circle cx="7" cy="7" r="3" fill="#332028"/></pattern>';
+    const patSvg = function (s) {
+      return svgDoc({ h: H, scale: s, defs: CLIP + dotsDefs,
+        body: '<g clip-path="url(#clip)">' + FILL('#FCE7EE') + FILL('url(#dots)') + '</g>' });
+    };
+    let circles = '';
+    for (let y = 7; y < H; y += 14) for (let x = 7; x < 100; x += 14) {
+      circles += '<circle cx="' + x + '" cy="' + y + '" r="3" fill="#332028"/>';
+    }
+    const cirSvg = svgDoc({ h: H, scale: 3, defs: CLIP,
+      body: '<g clip-path="url(#clip)">' + FILL('#FCE7EE') + circles + '</g>' });
+
+    // 「中間調率」= ドット中心を通る走査線上で、地色ともドット色ともつかない画素の割合。
+    // 高いほどぼやけている（等倍でラスタライズしてから拡大された疑い）。
+    function softness(r) {
+      if (!r.data) return NaN;
+      const y = Math.round(r.canvas.height * 0.5);
+      let mid = 0, n = 0;
+      for (let x = 0; x < r.canvas.width; x++) {
+        const p = px(r.data, x, y);
+        if (p[3] < 200) continue;
+        n++;
+        const lum = p[0] * 0.3 + p[1] * 0.59 + p[2] * 0.11;
+        if (lum > 70 && lum < 210) mid++;
+      }
+      return n ? Math.round(mid / n * 100) : NaN;
+    }
+
+    const r1 = await rasterize(patSvg(1));
+    const r3 = await rasterize(patSvg(3));
+    const rc = await rasterize(cirSvg);
+    const s1 = softness(r1), s3 = softness(r3), sc = softness(rc);
+    const patternBlurry = isFinite(s3) && isFinite(sc) && (s3 > sc + 8);
+    addCard({
+      id: 'T3', title: 'pattern（ドット柄）の高解像度書き出し',
+      why: 'Chrome は SVG-as-image の pattern を等倍でラスタライズしてから拡大することがある。ぼやけるなら pattern をやめて circle を並べる。',
+      cells: [cell('pattern 1x', r1.canvas), cell('pattern 3x', r3.canvas), cell('circle 3x', rc.canvas)],
+      verdict: patternBlurry
+        ? V('warn', 'pattern の3倍書き出しがぼやけている。ドット・ボーダーは circle/rect を明示生成する')
+        : V('ok', 'pattern でも高解像度で綺麗に出る'),
+      detail: '中間調率（低いほどくっきり） pattern1x=' + s1 + '% pattern3x=' + s3 + '% circle3x=' + sc + '%'
+            + '\n※ 3枚を目で見比べて、真ん中がぼやけていないかも確認する',
+    });
+  }
+
+  /* ---------- T4: 同一パーツを2個置いたときの id 衝突 ---------- */
+  {
+    const STONE = '<g><radialGradient id="sg" cx="0.34" cy="0.28" r="0.85">'
+                + '<stop offset="0" stop-color="{c0}"/><stop offset="0.55" stop-color="{c1}"/>'
+                + '<stop offset="1" stop-color="{c2}"/></radialGradient>'
+                + '<circle cx="0" cy="0" r="15" fill="url(#sg)"/></g>';
+    const A = ['#FFFFFF', '#7FD4F0', '#1B6E8C'];
+    const B = ['#FFFFFF', '#E8425A', '#78101F'];
+    const place = function (m, x, y) { return '<g transform="translate(' + x + ' ' + y + ')">' + m + '</g>'; };
+
+    const ngBody = place(paint(STONE, A), 32, H * 0.42) + place(paint(STONE, B), 68, H * 0.66);
+    const okBody = place(instantiate(paint(STONE, A), 'a_'), 32, H * 0.42)
+                 + place(instantiate(paint(STONE, B), 'b_'), 68, H * 0.66);
+    const wrap = function (body) {
+      return svgDoc({ h: H, scale: 2, defs: CLIP,
+        body: '<g clip-path="url(#clip)">' + FILL('#FBEFF3') + body + '</g>' });
+    };
+
+    const rNg = await rasterize(wrap(ngBody));
+    const rOk = await rasterize(wrap(okBody));
+    const sample = function (r) {
+      return r.data ? [px(r.data, r.canvas.width * 0.32, r.canvas.height * 0.42),
+                       px(r.data, r.canvas.width * 0.68, r.canvas.height * 0.66)] : null;
+    };
+    const ng = sample(rNg), ok = sample(rOk);
+    const ngSame = ng && dist(ng[0], ng[1]) < 40;
+    const okDiff = ok && dist(ok[0], ok[1]) > 60;
+
+    addCard({
+      id: 'T4', title: '同じパーツを2個置いたときの id 衝突',
+      why: '作例にはリボンが2個並ぶ爪がある。パーツが radialGradient を持つと id が衝突して両方が同じ色になる。描画時に接頭辞を付ければ直る。',
+      cells: [cell('接頭辞なし', rNg.canvas), cell('接頭辞あり', rOk.canvas)],
+      verdict: (ngSame && okDiff) ? V('ok', '衝突を再現し、接頭辞で解決できることを確認。render.js で必ず接頭辞を付ける')
+             : okDiff ? V('ok', 'この環境では衝突しなかったが接頭辞ありは正常。規約は維持する')
+             : V('ng', '接頭辞を付けても色が分かれない。別の原因がある'),
+      detail: '接頭辞なし: A=' + hex(ng && ng[0]) + ' B=' + hex(ng && ng[1]) + ' 差=' + (ng ? dist(ng[0], ng[1]) : '?') + '（同じなら衝突）'
+            + '\n接頭辞あり: A=' + hex(ok && ok[0]) + ' B=' + hex(ok && ok[1]) + ' 差=' + (ok ? dist(ok[0], ok[1]) : '?') + '（違えば正常）',
+    });
+  }
+
+  /* ---------- T5: @font-face を base64 で埋め込んだ文字 ---------- */
+  {
+    let font = null, fontErr = '';
+    try { font = await fetchFontDataUri('Dancing Script'); }
+    catch (e) { fontErr = e.message; }
+
+    const textBody = '<text x="50" y="' + (H * 0.62) + '" text-anchor="middle" '
+                   + 'font-family="SpikeScript, serif" font-size="44" fill="#C2385A">Ag</text>';
+
+    if (!font) {
+      addCard({
+        id: 'T5', title: '@font-face（base64 埋め込みフォント）',
+        why: '書き出したPNGで文字が既定書体に化けないか。ここが通らないと文字機能が成立しない。',
+        cells: [],
+        verdict: V('skip', 'フォントを取得できずスキップ: ' + fontErr
+          + '（オフラインだとこうなる。実アプリでは docs/fonts/ に同梱するので改めて検証する）'),
+      });
+    } else {
+      const withFont = svgDoc({ h: H, scale: 2, defs: CLIP,
+        fontCSS: '@font-face{font-family:"SpikeScript";src:url(' + font.uri + ') format("woff2");}',
+        body: '<g clip-path="url(#clip)">' + FILL('#FFF8FA') + textBody + '</g>' });
+      const noFont = svgDoc({ h: H, scale: 2, defs: CLIP,
+        body: '<g clip-path="url(#clip)">' + FILL('#FFF8FA') + textBody + '</g>' });
+
+      const rW = await rasterize(withFont);
+      const rN = await rasterize(noFont);
+      let diff = 0, total = 0;
+      if (rW.data && rN.data && rW.data.data.length === rN.data.data.length) {
+        for (let i = 0; i < rW.data.data.length; i += 4) {
+          total++;
+          if (Math.abs(rW.data.data[i] - rN.data.data[i]) > 24
+           || Math.abs(rW.data.data[i + 3] - rN.data.data[i + 3]) > 24) diff++;
+        }
+      }
+      const pct = total ? (diff / total * 100) : 0;
+      addCard({
+        id: 'T5', title: '@font-face（base64 埋め込みフォント）',
+        why: '書き出したPNGで文字が既定書体に化けないか。ここが通らないと文字機能が成立しない。',
+        cells: [cell('埋め込みあり', rW.canvas), cell('なし(serif)', rN.canvas)],
+        verdict: pct > 1.2 ? V('ok', '埋め込みフォントが書き出しに反映されている')
+               : V('ng', '既定書体のまま。文字は書き出し時に path 化するなど別方式が必要'),
+        detail: '2枚の差分 ' + pct.toFixed(2) + '%（1.2%超で反映とみなす） フォント '
+              + (font.bytes / 1024).toFixed(0) + 'KB'
+              + '\n※ 左が筆記体、右が明朝/セリフになっていれば成功',
+      });
+    }
+  }
+
+  /* ---------- T6: paint-order による文字の縁取り ---------- */
+  {
+    const mk = function (stroke) {
+      return svgDoc({ h: H, scale: 2, defs: CLIP,
+        body: '<g clip-path="url(#clip)">' + FILL('#F4C3D2')
+            + '<text x="50" y="' + (H * 0.62) + '" text-anchor="middle" font-size="54" font-weight="700" fill="#C2385A"'
+            + (stroke ? ' stroke="#FFFFFF" stroke-width="7" paint-order="stroke" stroke-linejoin="round"' : '')
+            + '>A</text></g>' });
+    };
+    const rS = await rasterize(mk(true));
+    const rP = await rasterize(mk(false));
+    const whiteCount = function (r) {
+      if (!r.data) return NaN;
+      let n = 0;
+      for (let i = 0; i < r.data.data.length; i += 4) {
+        if (r.data.data[i + 3] > 200 && r.data.data[i] > 235 && r.data.data[i + 1] > 235 && r.data.data[i + 2] > 235) n++;
+      }
+      return n;
+    };
+    const ws = whiteCount(rS), wp = whiteCount(rP);
+    addCard({
+      id: 'T6', title: 'paint-order（文字の縁取り）',
+      why: '小さい爪の上で細い文字を読ませるのに使う。1行で書けるが対応していない環境がある。',
+      cells: [cell('縁取りあり', rS.canvas), cell('なし', rP.canvas)],
+      verdict: (isFinite(ws) && ws > 400 && ws > wp * 3)
+        ? V('ok', '白い縁取りが出ている')
+        : V('warn', '縁取りが確認できない。文字の下に太い同形テキストを重ねる方式にする'),
+      detail: '白画素数 縁取りあり=' + ws + ' なし=' + wp,
+    });
+  }
+
+  /* ---------- T7: width/height 属性を省いた場合 ---------- */
+  {
+    const svg = svgDoc({ h: H, scale: 2, defs: CLIP, omitSize: true,
+      body: '<g clip-path="url(#clip)">' + FILL('#7EC98D') + '</g>' });
+    try {
+      const r = await rasterize(svg);
+      const nw = r.natural[0], nh = r.natural[1];
+      const resolved = (nw === 200 && nh === Math.round(H * 2));
+      addCard({
+        id: 'T7', title: 'width/height 属性の省略',
+        why: '属性が無いと Safari/Firefox で 300x150 や 0 になる。書き出しコードで必ず付ける根拠を確認する。',
+        cells: [cell('省略時', r.canvas)],
+        verdict: V(resolved ? 'warn' : 'ok', '結論は同じ: 書き出す SVG には width/height を必ず付ける'),
+        detail: 'width/height なし: naturalSize=' + nw + 'x' + nh
+              + (resolved ? '（この環境では viewBox から正しく解決されたが、他環境では 300x150 や 0 になる）'
+                          : '（想定どおり当てにならない値になった）'),
+      });
+    } catch (e) {
+      addCard({
+        id: 'T7', title: 'width/height 属性の省略',
+        why: '属性が無いと Safari/Firefox で 300x150 や 0 になる。',
+        cells: [], verdict: V('ok', '省略すると読み込み自体が失敗した。属性は必須'), detail: String(e.message),
+      });
+    }
+  }
+
+  /* ---------- T8: canvas 汚染 と toBlob ---------- */
+  {
+    const svg = svgDoc({ h: H, scale: 2, defs: CLIP, body: '<g clip-path="url(#clip)">' + FILL('#E8607F') + '</g>' });
+    const r = await rasterize(svg);
+    try {
+      const b = await toBlobAsync(r.canvas);
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(b);
+      addCard({
+        id: 'T8', title: 'canvas の汚染と toBlob',
+        why: 'SVG に外部参照があると canvas が汚染され toBlob が例外になる。書き出しの最終段。',
+        cells: [cell('PNG化した結果', img)],
+        verdict: r.tainted ? V('ng', 'canvas が汚染された: ' + r.taintErr) : V('ok', '汚染なし・PNG化に成功'),
+        detail: 'toBlob 成功: ' + (b.size / 1024).toFixed(1) + 'KB (' + b.type + ')',
+      });
+    } catch (e) {
+      addCard({
+        id: 'T8', title: 'canvas の汚染と toBlob',
+        why: 'SVG に外部参照があると canvas が汚染され toBlob が例外になる。',
+        cells: [], verdict: V('ng', 'toBlob に失敗'),
+        detail: String(e.message) + (r.tainted ? ' / 汚染: ' + r.taintErr : ''),
+      });
+    }
+  }
+
+  /* ---------- T9: 爪の形4種 × 長さ3段（ピクセル検査） ---------- */
+  {
+    const PINK = [246, 191, 208], CREAM = [255, 247, 226], BLUE = [127, 212, 240];
+    const near = function (p, c) { return p && p[3] > 200 && dist(p, c) < 60; };
+
+    const cells = [], notes = [];
+    let bad = 0;
+    const shapes = Object.keys(TIPS), lens = Object.keys(LENGTHS);
+
+    for (const shape of shapes) {
+      for (const lname of lens) {
+        const h = LENGTHS[lname];
+        const d = nailPath(shape, h);
+        const svg = svgDoc({ h: h, scale: 2,
+          defs: '<clipPath id="c"><path d="' + d + '"/></clipPath>',
+          body: '<g clip-path="url(#c)">'
+              + '<rect x="-10" y="-10" width="120" height="' + (h + 20) + '" fill="#F6BFD0"/>'
+              // 先端フレンチ（tip 吸着）。白だと背景に溶けるので視認できる色にする
+              + '<rect x="-10" y="' + (h - 26) + '" width="120" height="60" fill="#FFF7E2"/>'
+              // 中心のモチーフ（center 吸着）
+              + '<circle cx="50" cy="' + (h / 2) + '" r="14" fill="#7FD4F0"/></g>'
+              // 爪の輪郭線。先端が潰れていないかを見るために描く
+              + '<path d="' + d + '" fill="none" stroke="#B08A99" stroke-width="2"/>' });
+
+        const r = await rasterize(svg);
+        const W = r.canvas.width, Hp = r.canvas.height;
+        const problems = [];
+
+        // ① 角が透明（clip が効いている）
+        if (!(r.data && px(r.data, 2, 2)[3] < 20)) problems.push('角が塗られている');
+        // ② 先端フレンチが tip に貼りついている（下から8%の位置）
+        if (!near(r.data && px(r.data, W / 2, Hp * 0.94), CREAM)) problems.push('先端がフレンチ色でない');
+        // ③ モチーフが中央にある
+        if (!near(r.data && px(r.data, W / 2, Hp / 2), BLUE)) problems.push('中央にモチーフが無い');
+        // ④ 根元寄りはベース色のまま
+        if (!near(r.data && px(r.data, W / 2, Hp * 0.22), PINK)) problems.push('根元がベース色でない');
+
+        // ⑤ 描画された最下段と最上段を測り、viewBox の高さぶん塗られているか
+        let lastRow = -1, firstRow = -1, tipPx = 0;
+        if (r.data) {
+          for (let y = Hp - 1; y >= 0 && lastRow < 0; y--) {
+            let n = 0;
+            for (let x = 0; x < W; x++) if (px(r.data, x, y)[3] > 128) n++;
+            if (n > 0) { lastRow = y; tipPx = n; }
+          }
+          for (let y = 0; y < Hp && firstRow < 0; y++) {
+            for (let x = 0; x < W; x++) if (px(r.data, x, y)[3] > 128) { firstRow = y; break; }
+          }
+        }
+        const paintedH = (lastRow - firstRow + 1) / 2;      // viewBox 単位に戻す
+        const tipW = Math.round(tipPx / 2);                  // 先端の実測幅
+        if (paintedH < h * 0.9) problems.push('縦が' + Math.round(paintedH) + '/' + h + 'しか塗られていない');
+
+        if (problems.length) bad++;
+        notes.push(TIPS[shape].label + '/' + lname
+          + ': 先端幅=' + tipW + ' 塗り高=' + Math.round(paintedH) + '/' + h
+          + (problems.length ? '  ★' + problems.join('・') : '  OK'));
+
+        const c = cell(TIPS[shape].label.slice(0, 4) + '/' + lname, r.canvas);
+        c.style.width = '72px';
+        c.querySelector('canvas').style.width = '62px';
+        cells.push(c);
+      }
+    }
+
+    // 形ごとに先端幅が違う＝4種がちゃんと別物になっている
+    const tipWidths = {};
+    notes.forEach(function (n) {
+      const label = n.split('/')[0];
+      const w = +(n.match(/先端幅=(\d+)/) || [])[1];
+      if (!tipWidths[label]) tipWidths[label] = [];
+      tipWidths[label].push(w);
+    });
+    const avg = function (a) { return Math.round(a.reduce(function (s, v) { return s + v; }, 0) / a.length); };
+    const summary = Object.keys(tipWidths).map(function (k) { return k + '=' + avg(tipWidths[k]); }).join(' ');
+    const distinct = new Set(Object.keys(tipWidths).map(function (k) { return avg(tipWidths[k]); })).size;
+
+    addCard({
+      id: 'T9', title: '爪の形4種 × 長さ3段',
+      why: '形は固定パスでなく関数生成にした。長さを変えても先端が潰れず、フレンチが先端に貼りつき、モチーフが中央に残るかを画素で確認する。',
+      cells: cells,
+      verdict: (bad === 0 && distinct >= 3)
+        ? V('ok', '12通りすべてで clip・先端フレンチ・中央モチーフが正しい。形も先端幅で区別できている')
+        : V('ng', bad + '/12 で問題あり' + (distinct < 3 ? '／形の先端幅が区別できていない' : '')),
+      detail: '平均先端幅: ' + summary + '\n' + notes.join('\n'),
+    });
+  }
+
+  const bar = document.querySelector('#summary .bar');
+  bar.textContent = '✅' + (results.ok || 0) + '  ⚠️' + (results.warn || 0)
+                  + '  ❌' + (results.ng || 0) + '  ⏭' + (results.skip || 0);
+  bar.className = 'bar ' + (results.ng ? 'ng' : results.warn ? 'warn' : 'ok');
+}
+
+document.getElementById('copyBtn').addEventListener('click', async function () {
+  const text = '=== nail_designer Phase 0 書き出し互換性チェック ===\n' + report.join('\n\n');
+  const msg = document.getElementById('copyMsg');
+  try {
+    await navigator.clipboard.writeText(text);
+    msg.textContent = 'コピーしました。貼り付けて送ってください。';
+  } catch (e) {
+    msg.textContent = 'コピーできませんでした。以下を選択して手動でコピーしてください。\n\n' + text;
+  }
+});
+
+run().catch(function (e) {
+  const bar = document.querySelector('#summary .bar');
+  bar.textContent = '実行時エラー: ' + e.message;
+  bar.className = 'bar ng';
+  console.error(e);
+});
+</script>
+</body>
+</html>
