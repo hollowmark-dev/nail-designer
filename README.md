@@ -7,7 +7,7 @@
 - アプリストアには公開しない。GitHub Pages に置いて URL を配る
 - ビルドツールなし。`docs/` をそのまま配信する
 
-設計の詳細は `C:\Users\subar\.claude\plans\glowing-sparking-ritchie.md`。
+設計と、そこに至る判断の記録は下の「Phase 0: 書き出し互換性の検証」以降にまとめてある。
 
 ## ローカルで動かす
 
@@ -17,8 +17,11 @@ python -m http.server 8021 --directory nail_designer/docs
 
 `http://localhost:8021` を開く。
 
-スマホの実機で見るときは、同じ Wi-Fi につないで `http://192.168.0.14:8021/` を開く
-（IPは環境で変わる。Windows ファイアウォールで Python の受信を許可する必要がある場合がある）。
+スマホの実機で見るときは、同じ Wi-Fi につないで `http://<PCのIPアドレス>:8021/` を開く
+（ファイアウォールで Python の受信を許可する必要がある場合がある）。
+
+注意: `navigator.share` / `navigator.storage` / Service Worker は HTTPS か localhost でしか動かないため、
+LAN越しの http では試せない。公開版で確認すること。
 
 ## 現在の状態
 
