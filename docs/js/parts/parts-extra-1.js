@@ -76,8 +76,8 @@ function tipDots(y, h) {
   let s = '';
   const rows = 6;
   for (let r = 0; r < rows; r++) {
-    const t = r / (rows - 1); // 0: 帯の開始側 / 1: 先端側
-    const ry = y + t * (h + 20 - y);
+    const t = r / (rows - 1); // 0: 帯の開始側 / 1: 先端側（上）
+    const ry = y - t * (y + 20);
     const count = 3 + Math.round(t * 7);
     const radius = 1.2 + t * 1.6;
     for (let i = 0; i < count; i++) {
@@ -92,26 +92,26 @@ export const EXTRA_EDGES = {
   'edge.diagonal_french': {
     name: '斜めフレンチ', slots: 1, defaultC: [1], tags: ['定番'],
     anchor: 'tip', defaultY: 30,
-    make: ({ h, y }) =>
-      `<polygon points="-10,${y + 15} 110,${y - 15} 110,${h + 20} -10,${h + 20}" fill="{c0}"/>`,
+    make: ({ y }) =>
+      `<polygon points="-10,${y - 15} 110,${y + 15} 110,-20 -10,-20" fill="{c0}"/>`,
   },
   'edge.v_french': {
     name: 'V字フレンチ', slots: 1, defaultC: [1], tags: ['定番'],
     anchor: 'tip', defaultY: 32,
-    make: ({ h, y }) =>
-      `<path d="M -10 ${y - 10} L 50 ${y + 14} L 110 ${y - 10} L 110 ${h + 20} L -10 ${h + 20} Z" fill="{c0}"/>`,
+    make: ({ y }) =>
+      `<path d="M -10 ${y + 10} L 50 ${y - 14} L 110 ${y + 10} L 110 -20 L -10 -20 Z" fill="{c0}"/>`,
   },
   'edge.reverse_french': {
     name: '逆フレンチ', slots: 1, defaultC: [1], tags: ['定番'],
     anchor: 'root', defaultY: 28,
-    make: ({ y }) =>
-      `<rect x="-10" y="-20" width="120" height="${Math.max(0, y + 20)}" fill="{c0}"/>`,
+    make: ({ h, y }) =>
+      `<rect x="-10" y="${y}" width="120" height="${Math.max(0, h + 20 - y)}" fill="{c0}"/>`,
   },
   'edge.lace_wave': {
     name: 'レース（波型）', slots: 2, defaultC: [1, 6], tags: ['ガーリー'],
     anchor: 'root', defaultY: 26,
-    make: ({ y }) =>
-      `<path d="${waveEdge(y)} L 110 -20 L -10 -20 Z" fill="{c0}"/>` +
+    make: ({ h, y }) =>
+      `<path d="${waveEdge(y)} L 110 ${h + 20} L -10 ${h + 20} Z" fill="{c0}"/>` +
       `<path d="${waveEdge(y)}" fill="none" stroke="{c1}" stroke-width="1.6" stroke-opacity="0.55"/>`,
   },
   'edge.tip_dots_grad': {

@@ -57,10 +57,14 @@ const BASES = {
 /* 縁（根元・先端に吸着する帯。爪の輪郭沿いのパスは持たない）             */
 /* ------------------------------------------------------------------ */
 
-/** スカラップ（半円の連なり）の輪郭。左から右へ、下に膨らむ */
-function scallopEdge(y, r = 7.5) {
+/**
+ * スカラップ（半円の連なり）の輪郭。左から右へ描く。
+ * down=true で下に膨らむ（先端側のレース）、false で上に膨らむ（根元側のレース）。
+ */
+function scallopEdge(y, down = true, r = 7.5) {
+  const sweep = down ? 1 : 0;
   let d = `M -10 ${y}`;
-  for (let x = -10; x < 110; x += r * 2) d += ` a ${r} ${r} 0 0 1 ${r * 2} 0`;
+  for (let x = -10; x < 110; x += r * 2) d += ` a ${r} ${r} 0 0 ${sweep} ${r * 2} 0`;
   return d;
 }
 
@@ -68,27 +72,35 @@ const EDGES = {
   'edge.french': {
     name: 'フレンチ', tags: ['定番','オフィス'], slots: 1, defaultC: [1],
     anchor: 'tip', defaultY: 34,
-    make: ({ h, y }) =>
-      `<path d="M -10 ${y - 8} Q 50 ${y + 12} 110 ${y - 8} L 110 ${h + 20} L -10 ${h + 20} Z" fill="{c0}"/>`,
+    make: ({ y }) =>
+      `<path d="M -10 ${y + 8} Q 50 ${y - 12} 110 ${y + 8} L 110 -20 L -10 -20 Z" fill="{c0}"/>`,
   },
   'edge.french_straight': {
     name: 'フレンチ（直線）', tags: ['オフィス'], slots: 1, defaultC: [1],
     anchor: 'tip', defaultY: 30,
-    make: ({ h, y }) =>
-      `<rect x="-10" y="${y}" width="120" height="${Math.max(0, h + 20 - y)}" fill="{c0}"/>`,
+    make: ({ y }) =>
+      `<rect x="-10" y="-20" width="120" height="${Math.max(0, y + 20)}" fill="{c0}"/>`,
   },
   'edge.lace_scallop': {
     name: 'レース', tags: ['ガーリー'], slots: 2, defaultC: [1, 0],
     anchor: 'root', defaultY: 26,
+    make: ({ h, y }) =>
+      `<path d="${scallopEdge(y, false)} L 110 ${h + 20} L -10 ${h + 20} Z" fill="{c0}"/>` +
+      `<path d="${scallopEdge(y, false)}" fill="none" stroke="{c1}" stroke-width="1.6" stroke-opacity="0.55"/>`,
+  },
+  'edge.lace_french': {
+    // 先端側のレース。スカラップが甘皮に向かって垂れる
+    name: 'レースフレンチ', tags: ['ガーリー'], slots: 2, defaultC: [1, 0],
+    anchor: 'tip', defaultY: 34,
     make: ({ y }) =>
-      `<path d="${scallopEdge(y)} L 110 -20 L -10 -20 Z" fill="{c0}"/>` +
-      `<path d="${scallopEdge(y)}" fill="none" stroke="{c1}" stroke-width="1.6" stroke-opacity="0.55"/>`,
+      `<path d="${scallopEdge(y, true)} L 110 -20 L -10 -20 Z" fill="{c0}"/>` +
+      `<path d="${scallopEdge(y, true)}" fill="none" stroke="{c1}" stroke-width="1.6" stroke-opacity="0.55"/>`,
   },
   'edge.halfmoon': {
     name: 'ハーフムーン', tags: ['韓国風'], slots: 1, defaultC: [1],
     anchor: 'root', defaultY: 30,
-    make: ({ y }) =>
-      `<path d="M -10 ${y} Q 50 ${y + 24} 110 ${y} L 110 -20 L -10 -20 Z" fill="{c0}"/>`,
+    make: ({ h, y }) =>
+      `<path d="M -10 ${y} Q 50 ${y - 24} 110 ${y} L 110 ${h + 20} L -10 ${h + 20} Z" fill="{c0}"/>`,
   },
   'edge.line': {
     name: 'ライン', tags: ['シンプル'], slots: 1, defaultC: [3],

@@ -50,7 +50,7 @@ export const RECIPES = [
     id: 'r.lace_ribbon', name: 'レース×リボン', tags: ['ガーリー'],
     base: base('base.solid', 0),
     layers: [
-      edge('edge.lace_scallop', 'root', 30, 1, 0),
+      edge('edge.lace_french', 'tip', 34, 1, 0),
       mo('motif.ribbon', 50, -14, 44, 2, 5),
       mo('motif.ribbon', 50, 22, 44, 2, 5),
     ],
@@ -59,7 +59,7 @@ export const RECIPES = [
     id: 'r.cat', name: '猫', tags: ['ガーリー'],
     base: base('base.solid', 0),
     layers: [
-      edge('edge.lace_scallop', 'root', 46, 1, 0),
+      edge('edge.lace_french', 'tip', 40, 1, 0),
       mo('motif.cat', 50, 10, 54, 1, 5, 0),
       mo('motif.ribbon', 50, -30, 28, 0, 5),
     ],
@@ -68,7 +68,7 @@ export const RECIPES = [
     id: 'r.cat_tabby', name: 'トラ猫', tags: ['ガーリー'],
     base: base('base.solid', 0),
     layers: [
-      edge('edge.lace_scallop', 'root', 46, 1, 0),
+      edge('edge.lace_french', 'tip', 40, 1, 0),
       mo('motif.cat_tabby', 50, 10, 54, 7, 5, 0, 4),
       mo('motif.ribbon', 50, -30, 28, 2, 5),
     ],

@@ -10,7 +10,7 @@ import { newDesign } from '../model.js';
 // パレット: 0ピンク 1白 2水色 3赤 4クリーム 5チャコール 6グレージュ 7オレンジ
 const P = { PINK: 0, WHITE: 1, BLUE: 2, RED: 3, CREAM: 4, INK: 5, GREY: 6, ORANGE: 7 };
 
-const lace = (y, c0, c1) => ({ part: 'edge.lace_scallop', anchor: 'root', y, c: [c0, c1] });
+const lace = (y, c0, c1) => ({ part: 'edge.lace_french', anchor: 'tip', y, c: [c0, c1] });
 const ribbon = (y, body, w) => ({ part: 'motif.ribbon', anchor: 'center', x: 50, y, w: w || 42, rot: 0, c: [body, P.INK] });
 const motif = (id, x, y, w, c) => ({ part: id, anchor: 'center', x, y, w, rot: 0, c });
 
@@ -43,7 +43,7 @@ export function sampleDesign() {
     // 5: 白地 + 小ドット + 先端フレンチ（ピンク）+ 中央ライン
     { base: P.WHITE, layers: [
       { part: 'pattern.dot_s', c: [P.INK] },
-      { part: 'edge.french', anchor: 'tip', y: 52, c: [P.PINK] },
+      { part: 'edge.halfmoon', anchor: 'root', y: 48, c: [P.PINK] },
       { part: 'edge.line', anchor: 'center', y: 6, c: [P.WHITE] },
     ] },
 
